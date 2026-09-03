@@ -11,6 +11,22 @@ public final class BountyConfig {
     public boolean requirePastureTether = true;
     public boolean requireCaughtAfterBountyStart = true;
     public boolean broadcastCompletion = true;
+    public boolean dailyAnnouncementEnabled = true;
+    public boolean firstCompletionAnnouncementEnabled = true;
+
+    /**
+     * Reserved for future streak rewards. The data/config is ready, but rewards remain disabled
+     * until enableStreakMilestones is explicitly turned on.
+     */
+    public boolean enableStreakMilestones = false;
+    public Map<Integer, Reward> streakMilestoneRewards = defaultStreakMilestones();
+
+    /**
+     * Reserved for richer rarity-specific chat presentation. Disabled by default so current
+     * presentation stays unchanged until explicitly enabled.
+     */
+    public boolean enableRarityPresentation = false;
+    public Map<String, String> rarityPresentation = defaultRarityPresentation();
 
     /**
      * Rarity buckets that are allowed to be selected for the daily bounty.
@@ -65,6 +81,22 @@ public final class BountyConfig {
         map.put("uncommon", new Reward("minecraft:enchanted_golden_apple", 1));
         map.put("rare", new Reward("minecraft:enchanted_golden_apple", 2));
         map.put("ultra-rare", new Reward("minecraft:enchanted_golden_apple", 3));
+        return map;
+    }
+
+    private static Map<Integer, Reward> defaultStreakMilestones() {
+        Map<Integer, Reward> map = new LinkedHashMap<>();
+        // Intentionally empty/disabled for now. Add rewards later, e.g.:
+        // map.put(7, new Reward("minecraft:diamond", 1));
+        return map;
+    }
+
+    private static Map<String, String> defaultRarityPresentation() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("common", "gray");
+        map.put("uncommon", "green");
+        map.put("rare", "light_purple");
+        map.put("ultra-rare", "gold");
         return map;
     }
 

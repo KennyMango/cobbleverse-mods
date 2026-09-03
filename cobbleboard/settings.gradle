@@ -1,9 +1,2 @@
-pluginManagement {
-    repositories {
-        maven { url = 'https://maven.fabricmc.net/' }
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
-
-rootProject.name = 'cobbleboard'
+pluginManagement { repositories { maven { url = "https://maven.fabricmc.net/" }; gradlePluginPortal(); mavenCentral() } }
+rootProject.name = "cobbleboard"

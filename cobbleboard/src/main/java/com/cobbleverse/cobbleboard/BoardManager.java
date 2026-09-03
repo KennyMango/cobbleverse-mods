@@ -15,8 +15,9 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.scoreboard.ScoreboardEntry;
+import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Text;
-import net.minecraft.text.MutableText;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
@@ -35,6 +36,7 @@ public final class BoardManager {
     private final RankingManager rankings;
     private BoardData data = new BoardData();
     private final Map<String, List<Entity>> liveEntities = new HashMap<>();
+    private final Map<String, Text> lastRenderedText = new HashMap<>();
     private int tickCounter;
     private boolean dirty;
 
@@ -144,29 +146,52 @@ public final class BoardManager {
         BoardData.BoardDefinition board = data.boards.get(key);
         if (board == null) return false;
 
-        // Remove both entities tracked in this JVM and any stale tagged entities
-        // left in the world by a previous refresh/crash/restart. This prevents
-        // old leaderboard rows from overlapping newly rendered standings.
-        clearLive(key);
-        cleanupTagged(server, key);
-
         ServerWorld world = resolveWorld(server, board.dimension);
         if (world == null) {
             CobbleBoardMod.LOGGER.warn("Cannot render board {} because dimension {} was not found", key, board.dimension);
             return false;
         }
 
-        if ("stacked".equalsIgnoreCase(board.displayMode)) {
-            return refreshStacked(world, key, board);
+        // Panel/status boards use a single TextDisplay. Keep that entity alive and
+        // update its text only when the rendered contents actually change.
+        if (!"stacked".equalsIgnoreCase(board.displayMode)) {
+            Text boardText = "status".equalsIgnoreCase(board.displayMode)
+                    ? buildStatusText(world, board)
+                    : buildPanelText(board);
+
+            List<Entity> entities = liveEntities.get(key);
+            if (entities != null && entities.size() == 1
+                    && entities.get(0) instanceof DisplayEntity.TextDisplayEntity display
+                    && !display.isRemoved()
+                    && display.getWorld() == world) {
+
+                Text previous = lastRenderedText.get(key);
+                if (!Objects.equals(previous, boardText)) {
+                    ((TextDisplayEntityInvoker) display).cobbleboard$setText(boardText);
+                    lastRenderedText.put(key, boardText);
+                }
+                return true;
+            }
+
+            // Missing/stale entity (for example after restart): clean once and respawn.
+            clearLive(key);
+            cleanupTagged(server, key);
+            return spawnTextDisplay(world, key, board, boardText);
         }
-        return refreshPanel(world, key, board);
+
+        // Legacy stacked mode uses multiple armor stands, so keep its existing
+        // rebuild behavior for now.
+        clearLive(key);
+        cleanupTagged(server, key);
+        return refreshStacked(world, key, board);
     }
 
-    private boolean refreshPanel(ServerWorld world, String key, BoardData.BoardDefinition board) {
+    private boolean spawnTextDisplay(ServerWorld world, String key,
+                                     BoardData.BoardDefinition board, Text boardText) {
         List<Entity> entities = new ArrayList<>();
-        Text boardText = buildPanelText(board);
 
-        DisplayEntity.TextDisplayEntity display = new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, world);
+        DisplayEntity.TextDisplayEntity display =
+                new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, world);
         display.refreshPositionAndAngles(board.x, board.y, board.z, 0.0F, 0.0F);
         display.setInvulnerable(true);
         display.setSilent(true);
@@ -185,7 +210,71 @@ public final class BoardManager {
         world.spawnEntity(display);
         entities.add(display);
         liveEntities.put(key, entities);
+        lastRenderedText.put(key, boardText);
         return true;
+    }
+
+    private boolean refreshStatus(ServerWorld world, String key, BoardData.BoardDefinition board) {
+        return spawnTextDisplay(world, key, board, buildStatusText(world, board));
+    }
+
+    private Text buildStatusText(ServerWorld world, BoardData.BoardDefinition board) {
+        Text result = Text.empty()
+                .append(Text.literal(board.title).formatted(parseColor(board.titleColor, Formatting.YELLOW), Formatting.BOLD))
+                .append(Text.literal("\n"))
+                .append(Text.literal("━━━━━━━━━━━━━━━━━━━━").formatted(Formatting.DARK_GRAY));
+
+        ScoreboardObjective objective = world.getServer().getScoreboard().getNullableObjective(board.objective);
+        if (objective == null) {
+            return result.append(Text.literal("\nStatus unavailable").formatted(Formatting.RED));
+        }
+
+        List<ScoreboardEntry> entries = new ArrayList<>();
+        for (ScoreboardEntry entry : world.getServer().getScoreboard().getScoreboardEntries(objective)) {
+            if (!entry.hidden()) entries.add(entry);
+        }
+        entries.sort(Comparator.comparingInt(ScoreboardEntry::value).reversed()
+                .thenComparing(ScoreboardEntry::owner, String.CASE_INSENSITIVE_ORDER));
+
+        int count = Math.min(board.limit, entries.size());
+        if (count == 0) {
+            return result.append(Text.literal("\nNo status yet").formatted(Formatting.GRAY, Formatting.ITALIC));
+        }
+
+        for (int i = 0; i < count; i++) {
+            result = result.append(Text.literal("\n")).append(statusLine(entries.get(i).owner(), i, board));
+        }
+        return result;
+    }
+
+    private Text statusLine(String value, int index, BoardData.BoardDefinition board) {
+        String lower = value.toLowerCase(Locale.ROOT);
+        Formatting color;
+        boolean bold = false;
+
+        if (index == 0) {
+            color = parseColor(board.nameColor, Formatting.AQUA);
+            bold = true;
+        } else if (lower.equals("common")) {
+            color = Formatting.GRAY;
+        } else if (lower.equals("uncommon")) {
+            color = Formatting.GREEN;
+        } else if (lower.equals("rare")) {
+            color = Formatting.LIGHT_PURPLE;
+        } else if (lower.equals("ultra-rare") || lower.equals("ultra rare")) {
+            color = Formatting.GOLD;
+            bold = true;
+        } else if (lower.startsWith("reward:")) {
+            color = Formatting.GOLD;
+        } else {
+            color = parseColor(board.nameColor, Formatting.AQUA);
+        }
+
+        return bold ? Text.literal(value).formatted(color, Formatting.BOLD) : Text.literal(value).formatted(color);
+    }
+
+    private boolean refreshPanel(ServerWorld world, String key, BoardData.BoardDefinition board) {
+        return spawnTextDisplay(world, key, board, buildPanelText(board));
     }
 
     private boolean refreshStacked(ServerWorld world, String key, BoardData.BoardDefinition board) {
@@ -216,7 +305,7 @@ public final class BoardManager {
     }
 
     private Text buildPanelText(BoardData.BoardDefinition board) {
-        MutableText result = Text.empty()
+        Text result = Text.empty()
                 .append(Text.literal(board.title).formatted(parseColor(board.titleColor, Formatting.YELLOW), Formatting.BOLD))
                 .append(Text.literal("\n"))
                 .append(Text.literal("━━━━━━━━━━━━━━━━━━━━").formatted(Formatting.DARK_GRAY));
@@ -296,7 +385,7 @@ public final class BoardManager {
         BoardData.BoardDefinition board = get(id);
         if (board == null) return false;
         String normalized = mode.toLowerCase(Locale.ROOT);
-        if (!normalized.equals("panel") && !normalized.equals("stacked")) return false;
+        if (!normalized.equals("panel") && !normalized.equals("stacked") && !normalized.equals("status")) return false;
         board.displayMode = normalized;
         dirty = true;
         save();
@@ -361,7 +450,9 @@ public final class BoardManager {
     }
 
     private void clearLive(String id) {
-        List<Entity> entities = liveEntities.remove(id.toLowerCase(Locale.ROOT));
+        String key = id.toLowerCase(Locale.ROOT);
+        lastRenderedText.remove(key);
+        List<Entity> entities = liveEntities.remove(key);
         if (entities == null) return;
         for (Entity entity : entities) {
             if (entity != null && !entity.isRemoved()) entity.discard();
@@ -370,22 +461,19 @@ public final class BoardManager {
 
     /**
      * Removes every loaded entity belonging to one board by its persistent command tag.
-     * Uses the world entity API directly instead of executing /kill, so an empty match
-     * does not print "No entity was found" to the server console.
+     * Unlike liveEntities, this also catches entities that survived a server crash/restart.
      */
     private int cleanupTagged(MinecraftServer server, String boardId) {
         String tag = "cobbleboard_" + sanitizeTag(boardId);
         int removed = 0;
         for (ServerWorld world : server.getWorlds()) {
-            List<Entity> stale = new ArrayList<>();
-            for (Entity entity : world.iterateEntities()) {
-                if (entity.getCommandTags().contains(tag)) stale.add(entity);
-            }
-            for (Entity entity : stale) {
-                if (!entity.isRemoved()) {
-                    entity.discard();
-                    removed++;
-                }
+            try {
+                removed += server.getCommandManager().executeWithPrefix(
+                        server.getCommandSource().withWorld(world),
+                        "kill @e[tag=" + tag + "]");
+            } catch (Exception e) {
+                CobbleBoardMod.LOGGER.warn("Could not clean stale entities for board {} in {}",
+                        boardId, world.getRegistryKey().getValue(), e);
             }
         }
         return removed;
@@ -394,21 +482,20 @@ public final class BoardManager {
     /**
      * Purges all CobbleBoard display entities, including orphaned boards no longer
      * present in cobbleboard-displays.json. Configured boards can then be recreated
-     * cleanly with refreshAll(). This is also silent when there is nothing to remove.
+     * cleanly with refreshAll().
      */
     public int cleanupAll(MinecraftServer server) {
         liveEntities.clear();
+        lastRenderedText.clear();
         int removed = 0;
         for (ServerWorld world : server.getWorlds()) {
-            List<Entity> stale = new ArrayList<>();
-            for (Entity entity : world.iterateEntities()) {
-                if (entity.getCommandTags().contains("cobbleboard")) stale.add(entity);
-            }
-            for (Entity entity : stale) {
-                if (!entity.isRemoved()) {
-                    entity.discard();
-                    removed++;
-                }
+            try {
+                removed += server.getCommandManager().executeWithPrefix(
+                        server.getCommandSource().withWorld(world),
+                        "kill @e[tag=cobbleboard]");
+            } catch (Exception e) {
+                CobbleBoardMod.LOGGER.warn("Could not clean CobbleBoard entities in {}",
+                        world.getRegistryKey().getValue(), e);
             }
         }
         return removed;

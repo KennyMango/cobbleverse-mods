@@ -208,3 +208,19 @@ Regular JAR output:
 ```text
 build/libs/cobblebounty-0.3.0.jar
 ```
+
+
+## v0.3.3 QoL: Daily bounty status panel
+`bounty_today` now publishes three ordered fake scoreboard entries:
+1. Pokémon species (score 30)
+2. Rarity bucket (score 20)
+3. Reward text (score 10)
+
+With CobbleBoard v0.4.0 status mode these render as a clean information panel with no rank numbers or scoreboard values.
+
+```mcfunction
+/cobbleboard board limit dailybounty 3
+/cobbleboard board mode dailybounty status
+/cobbleboard board title dailybounty TODAY'S BOUNTY
+/cobbleboard board refresh dailybounty
+```

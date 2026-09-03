@@ -3,23 +3,10 @@
   "id": "cobbleboard",
   "version": "${version}",
   "name": "CobbleBoard",
-  "description": "Server-side Top-N floating leaderboard panels with first-to-achieve tie breaking and admin overrides.",
-  "authors": [
-    "Cobbleverse"
-  ],
+  "description": "Server-side persistent scoreboard leaderboards and status panels for Cobbleverse.",
+  "authors": ["Cobbleverse"],
   "environment": "server",
-  "mixins": [
-    "cobbleboard.mixins.json"
-  ],
-  "entrypoints": {
-    "main": [
-      "com.cobbleverse.cobbleboard.CobbleBoardMod"
-    ]
-  },
-  "depends": {
-    "fabricloader": ">=0.16.0",
-    "fabric-api": "*",
-    "minecraft": "1.21.1",
-    "java": ">=21"
-  }
+  "entrypoints": { "main": ["com.cobbleverse.cobbleboard.CobbleBoardMod"] },
+  "mixins": ["cobbleboard.mixins.json"],
+  "depends": { "fabricloader": ">=0.17.2", "fabric-api": "*", "minecraft": "1.21.1", "java": ">=21" }
 }

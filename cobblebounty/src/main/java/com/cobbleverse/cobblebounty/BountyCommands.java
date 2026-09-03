@@ -25,6 +25,8 @@ public final class BountyCommands {
                         .executes(ctx -> status(ctx.getSource(), manager))
                         .then(literal("submit").executes(ctx -> submit(ctx.getSource(), manager)))
                         .then(literal("leaderboard").executes(ctx -> leaderboard(ctx.getSource(), manager)))
+                        .then(literal("history").executes(ctx -> history(ctx.getSource(), manager)))
+                        .then(literal("stats").executes(ctx -> stats(ctx.getSource(), manager)))
                         .then(literal("admin")
                                 .requires(src -> src.hasPermissionLevel(2))
                                 .then(literal("reroll").executes(ctx -> {
@@ -74,23 +76,24 @@ public final class BountyCommands {
     private static int status(ServerCommandSource source, BountyManager manager) throws CommandSyntaxException {
         manager.ensureToday(source.getServer());
         ServerPlayerEntity player = source.getPlayerOrThrow();
-        source.sendFeedback(() -> Text.literal("★ DAILY POKÉMON BOUNTY ★").formatted(Formatting.GOLD, Formatting.BOLD), false);
+
+        source.sendFeedback(() -> Text.literal("★ TODAY'S POKÉMON BOUNTY ★").formatted(Formatting.GOLD, Formatting.BOLD), false);
         source.sendFeedback(() -> Text.literal("Target: ").formatted(Formatting.GRAY)
                 .append(Text.literal(manager.getDisplaySpecies()).formatted(Formatting.AQUA, Formatting.BOLD)), false);
         source.sendFeedback(() -> Text.literal("Rarity: ").formatted(Formatting.GRAY)
                 .append(Text.literal(manager.getDisplayBucket()).formatted(Formatting.YELLOW)), false);
         source.sendFeedback(() -> Text.literal("Reward: ").formatted(Formatting.GRAY)
                 .append(Text.literal(manager.getRewardDescription()).formatted(Formatting.LIGHT_PURPLE)), false);
-        source.sendFeedback(() -> Text.literal("Your status: ").formatted(Formatting.GRAY)
-                .append(Text.literal(manager.hasCompleted(player) ? "COMPLETED" : "NOT COMPLETED")
-                        .formatted(manager.hasCompleted(player) ? Formatting.GREEN : Formatting.YELLOW)), false);
-        source.sendFeedback(() -> Text.literal("Lifetime: " + manager.getTotal(player) + "  |  Streak: " + manager.getStreak(player)), false);
-        if (manager.getPasture() == null) {
-            source.sendFeedback(() -> Text.literal("Bounty Pasture: not configured").formatted(Formatting.RED), false);
-        } else {
-            BountyState.PastureLocation p = manager.getPasture();
-            source.sendFeedback(() -> Text.literal("Submit at pasture: " + p.x + " " + p.y + " " + p.z + " (" + p.dimension + ")").formatted(Formatting.DARK_GRAY), false);
-        }
+
+        String status = manager.hasCompleted(player) ? "✓ Completed Today" : "Not Completed";
+        source.sendFeedback(() -> Text.literal("Status: ").formatted(Formatting.GRAY)
+                .append(Text.literal(status).formatted(manager.hasCompleted(player) ? Formatting.GREEN : Formatting.YELLOW)), false);
+
+        source.sendFeedback(() -> Text.literal(
+                "Streak: " + manager.getStreak(player)
+                        + " days  |  Total: " + manager.getTotal(player)
+        ).formatted(Formatting.GRAY), false);
+
         return 1;
     }
 
@@ -99,6 +102,40 @@ public final class BountyCommands {
         BountyManager.SubmitResult result = manager.submit(source.getServer(), player);
         source.sendFeedback(() -> Text.literal(result.message()).formatted(result.success() ? Formatting.GREEN : Formatting.RED), false);
         return result.success() ? 1 : 0;
+    }
+
+    private static int history(ServerCommandSource source, BountyManager manager) {
+        source.sendFeedback(() -> Text.literal("★ BOUNTY HISTORY ★").formatted(Formatting.GOLD, Formatting.BOLD), false);
+        var rows = manager.history(7);
+        if (rows.isEmpty()) {
+            source.sendFeedback(() -> Text.literal("No bounty history yet.").formatted(Formatting.GRAY), false);
+            return 1;
+        }
+
+        for (BountyState.HistoryEntry entry : rows) {
+            String line = entry.date + "  " + BountyManager.prettify(entry.species)
+                    + "  [" + BountyManager.prettify(entry.bucket) + "]";
+            source.sendFeedback(() -> Text.literal(line), false);
+        }
+        return 1;
+    }
+
+    private static int stats(ServerCommandSource source, BountyManager manager) throws CommandSyntaxException {
+        ServerPlayerEntity player = source.getPlayerOrThrow();
+        source.sendFeedback(() -> Text.literal("★ YOUR BOUNTY STATS ★").formatted(Formatting.GOLD, Formatting.BOLD), false);
+        source.sendFeedback(() -> Text.literal("Total completed: " + manager.getTotal(player)), false);
+        source.sendFeedback(() -> Text.literal("Current streak: " + manager.getStreak(player)
+                + "  |  Best streak: " + manager.getBestStreak(player)), false);
+        source.sendFeedback(() -> Text.literal("First completions: " + manager.getFirstCompletions(player)), false);
+        source.sendFeedback(() -> Text.literal(
+                "Common: " + manager.getRarityCompletions(player, "common")
+                        + "  |  Uncommon: " + manager.getRarityCompletions(player, "uncommon")
+        ), false);
+        source.sendFeedback(() -> Text.literal(
+                "Rare: " + manager.getRarityCompletions(player, "rare")
+                        + "  |  Ultra-Rare: " + manager.getRarityCompletions(player, "ultra-rare")
+        ), false);
+        return 1;
     }
 
     private static int leaderboard(ServerCommandSource source, BountyManager manager) {

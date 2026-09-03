@@ -24,6 +24,7 @@ public final class BoardData {
 
         // v0.4 display mode. "panel" uses one multiline Text Display entity.
         // "stacked" preserves the legacy one-armor-stand-per-line renderer.
+        // "status" shows scoreboard entry names as clean information lines without ranks or scores.
         public String displayMode = "panel";
         public double boardScale = 1.35D;
         public int boardWidth = 240;

@@ -33,8 +33,8 @@ public final class CobbleBoardMod implements ModInitializer {
             // World entities persist across restarts, but liveEntities does not.
             // Purge stale/orphaned CobbleBoard entities first, then rebuild each
             // configured board exactly once.
-            int cleanedWorlds = BOARDS.cleanupAll(server);
-            if (cleanedWorlds > 0) LOGGER.info("Ran stale CobbleBoard entity cleanup in {} loaded world(s) on startup.", cleanedWorlds);
+            int removed = BOARDS.cleanupAll(server);
+            if (removed > 0) LOGGER.info("Removed {} stale CobbleBoard display entities on startup.", removed);
             BOARDS.refreshAll(server);
         });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
@@ -227,7 +227,7 @@ public final class CobbleBoardMod implements ModInitializer {
                                     String id = StringArgumentType.getString(ctx, "id");
                                     String mode = StringArgumentType.getString(ctx, "mode");
                                     if (!BOARDS.setDisplayMode(ctx.getSource().getServer(), id, mode)) {
-                                        ctx.getSource().sendError(Text.literal("Invalid board or mode. Use: panel or stacked."));
+                                        ctx.getSource().sendError(Text.literal("Invalid board or mode. Use: panel, stacked, or status."));
                                         return 0;
                                     }
                                     ctx.getSource().sendFeedback(() -> Text.literal("Set " + id + " display mode to " + mode), true);
@@ -343,11 +343,11 @@ public final class CobbleBoardMod implements ModInitializer {
 
                     .then(CommandManager.literal("cleanup")
                         .executes(ctx -> {
-                            int cleanedWorlds = BOARDS.cleanupAll(ctx.getSource().getServer());
+                            int removed = BOARDS.cleanupAll(ctx.getSource().getServer());
                             BOARDS.refreshAll(ctx.getSource().getServer());
                             ctx.getSource().sendFeedback(() -> Text.literal(
-                                    "Cleaned CobbleBoard display entities in " + cleanedWorlds + " loaded world(s) and rebuilt configured boards."), true);
-                            return Math.max(1, cleanedWorlds);
+                                    "Removed " + removed + " CobbleBoard display entities and rebuilt configured boards."), true);
+                            return Math.max(1, removed);
                         }))
 
                     .then(CommandManager.literal("list")

@@ -39,12 +39,15 @@ public final class CobbleBountyMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             MANAGER.ensureToday(server);
             MANAGER.syncScoreboard(server, handler.player);
-            handler.player.sendMessage(
-                    Text.literal("Today's Pokémon bounty: ").formatted(Formatting.GOLD)
-                            .append(Text.literal(MANAGER.getDisplaySpecies()).formatted(Formatting.AQUA, Formatting.BOLD))
-                            .append(Text.literal(" — use /bounty").formatted(Formatting.GRAY)),
-                    false
-            );
+
+            if (MANAGER.isDailyAnnouncementEnabled() && MANAGER.shouldSendDailyAnnouncement(handler.player)) {
+                handler.player.sendMessage(
+                        Text.literal("★ A new Pokémon Bounty is available! Use /bounty for details.")
+                                .formatted(Formatting.GOLD),
+                        false
+                );
+                MANAGER.markDailyAnnouncementSent(handler.player);
+            }
         });
 
         // Date rollover check once per minute, not every tick.

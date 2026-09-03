@@ -80,11 +80,24 @@ public final class BountyManager {
                     state.bountyStartedAtEpochMillis = System.currentTimeMillis();
                     saveState();
                 }
+                migrateStateCollections();
             }
         } catch (Exception e) {
             CobbleBountyMod.LOGGER.error("Failed to load CobbleBounty state; using empty state", e);
             state = new BountyState();
         }
+    }
+
+    private void migrateStateCollections() {
+        if (state.completedPlayers == null) state.completedPlayers = new HashSet<>();
+        if (state.totalCompleted == null) state.totalCompleted = new HashMap<>();
+        if (state.currentStreak == null) state.currentStreak = new HashMap<>();
+        if (state.lastCompletionDate == null) state.lastCompletionDate = new HashMap<>();
+        if (state.bestStreak == null) state.bestStreak = new HashMap<>();
+        if (state.firstCompletions == null) state.firstCompletions = new HashMap<>();
+        if (state.rarityCompletions == null) state.rarityCompletions = new HashMap<>();
+        if (state.lastAnnouncementDate == null) state.lastAnnouncementDate = new HashMap<>();
+        if (state.history == null) state.history = new ArrayList<>();
     }
 
     public void reload(MinecraftServer server) {
@@ -228,6 +241,7 @@ public final class BountyManager {
         state.bountyId = UUID.randomUUID().toString();
         state.bountyStartedAtEpochMillis = System.currentTimeMillis();
         state.completedPlayers.clear();
+        recordHistoryEntry();
         saveState();
     }
 
@@ -263,6 +277,19 @@ public final class BountyManager {
         return candidates.get(candidates.size() - 1);
     }
 
+    private void recordHistoryEntry() {
+        migrateStateCollections();
+        if (state.date == null || state.date.isBlank() || state.species == null || state.species.isBlank()) return;
+
+        // Keep one final entry per calendar date. Admin rerolls/sets update today's row instead of
+        // creating several duplicate history rows.
+        state.history.removeIf(entry -> entry != null && state.date.equals(entry.date));
+        state.history.add(new BountyState.HistoryEntry(state.date, state.species, getBucket()));
+
+        // Keep the state file small while still giving plenty of history for future features.
+        while (state.history.size() > 90) state.history.remove(0);
+    }
+
     public synchronized void reroll(MinecraftServer server) {
         ensureCatalog(server);
         rollNewBounty(today().toString());
@@ -284,6 +311,7 @@ public final class BountyManager {
         state.bountyId = UUID.randomUUID().toString();
         state.bountyStartedAtEpochMillis = System.currentTimeMillis();
         state.completedPlayers.clear();
+        recordHistoryEntry();
         saveState();
         syncTodayBoard(server);
         broadcastNewBounty(server);
@@ -297,7 +325,10 @@ public final class BountyManager {
 
     public String getRewardDescription() {
         BountyConfig.Reward reward = getCurrentReward();
-        return Math.max(1, reward.count) + "x " + reward.item;
+        String itemName = reward.item == null ? "reward" : reward.item;
+        int colon = itemName.indexOf(':');
+        if (colon >= 0 && colon + 1 < itemName.length()) itemName = itemName.substring(colon + 1);
+        return Math.max(1, reward.count) + "x " + prettify(itemName);
     }
 
     private BountyConfig.Reward getCurrentReward() {
@@ -380,6 +411,49 @@ public final class BountyManager {
 
     public int getStreak(ServerPlayerEntity player) {
         return state.currentStreak.getOrDefault(player.getUuidAsString(), 0);
+    }
+
+    public int getBestStreak(ServerPlayerEntity player) {
+        return state.bestStreak.getOrDefault(player.getUuidAsString(), getStreak(player));
+    }
+
+    public int getFirstCompletions(ServerPlayerEntity player) {
+        return state.firstCompletions.getOrDefault(player.getUuidAsString(), 0);
+    }
+
+    public int getRarityCompletions(ServerPlayerEntity player, String bucket) {
+        Map<String, Integer> counts = state.rarityCompletions.get(player.getUuidAsString());
+        if (counts == null) return 0;
+        return counts.getOrDefault(normalizeBucket(bucket), 0);
+    }
+
+    public List<BountyState.HistoryEntry> history(int limit) {
+        migrateStateCollections();
+        int safeLimit = Math.max(1, limit);
+        List<BountyState.HistoryEntry> copy = new ArrayList<>(state.history);
+        copy.sort((a, b) -> {
+            String ad = a == null || a.date == null ? "" : a.date;
+            String bd = b == null || b.date == null ? "" : b.date;
+            return bd.compareTo(ad);
+        });
+        if (copy.size() > safeLimit) return new ArrayList<>(copy.subList(0, safeLimit));
+        return copy;
+    }
+
+    public boolean shouldSendDailyAnnouncement(ServerPlayerEntity player) {
+        migrateStateCollections();
+        String today = today().toString();
+        return !today.equals(state.lastAnnouncementDate.get(player.getUuidAsString()));
+    }
+
+    public void markDailyAnnouncementSent(ServerPlayerEntity player) {
+        migrateStateCollections();
+        state.lastAnnouncementDate.put(player.getUuidAsString(), today().toString());
+        saveState();
+    }
+
+    public boolean isDailyAnnouncementEnabled() {
+        return config.dailyAnnouncementEnabled;
     }
 
     public int completedTodayCount() { return state.completedPlayers.size(); }
@@ -498,6 +572,8 @@ public final class BountyManager {
     }
 
     private synchronized void complete(MinecraftServer server, ServerPlayerEntity player) {
+        migrateStateCollections();
+
         String uuid = player.getUuidAsString();
         LocalDate today = today();
         String previous = state.lastCompletionDate.get(uuid);
@@ -510,18 +586,46 @@ public final class BountyManager {
             } catch (Exception ignored) {}
         }
 
+        boolean firstToday = state.completedPlayers.isEmpty();
+
         state.completedPlayers.add(uuid);
         state.totalCompleted.put(uuid, state.totalCompleted.getOrDefault(uuid, 0) + 1);
         state.currentStreak.put(uuid, streak);
+        state.bestStreak.put(uuid, Math.max(state.bestStreak.getOrDefault(uuid, 0), streak));
         state.lastCompletionDate.put(uuid, today.toString());
+
+        Map<String, Integer> rarityCounts = state.rarityCompletions.computeIfAbsent(uuid, k -> new HashMap<>());
+        String bucket = getBucket();
+        rarityCounts.put(bucket, rarityCounts.getOrDefault(bucket, 0) + 1);
+
+        if (firstToday) {
+            state.firstCompletions.put(uuid, state.firstCompletions.getOrDefault(uuid, 0) + 1);
+        }
+
         saveState();
 
         giveReward(server, player);
         syncScoreboard(server, player);
 
+        // Streak milestone infrastructure is intentionally disabled by default. No milestone reward
+        // is given unless an administrator explicitly enables it in a future config.
+        if (config.enableStreakMilestones && config.streakMilestoneRewards != null) {
+            BountyConfig.Reward milestone = config.streakMilestoneRewards.get(streak);
+            if (milestone != null && milestone.item != null && !milestone.item.isBlank()) {
+                giveSpecificReward(server, player, milestone);
+            }
+        }
+
         if (config.broadcastCompletion) {
+            String message = "✓ " + player.getName().getString()
+                    + " completed today's " + getDisplaySpecies() + " bounty!"
+                    + (streak > 1 ? " 🔥 " + streak + " day streak!" : "");
+            server.getPlayerManager().broadcast(Text.literal(message), false);
+        }
+
+        if (firstToday && config.firstCompletionAnnouncementEnabled) {
             server.getPlayerManager().broadcast(
-                    Text.literal("★ " + player.getName().getString() + " completed today's Pokémon bounty: " + getDisplaySpecies() + "! ★"),
+                    Text.literal("★ " + player.getName().getString() + " was the first Bounty Hunter today!"),
                     false
             );
         }
@@ -529,6 +633,11 @@ public final class BountyManager {
 
     private void giveReward(MinecraftServer server, ServerPlayerEntity player) {
         BountyConfig.Reward reward = getCurrentReward();
+        String cmd = "give " + player.getGameProfile().getName() + " " + reward.item + " " + Math.max(1, reward.count);
+        server.getCommandManager().executeWithPrefix(server.getCommandSource().withSilent(), cmd);
+    }
+
+    private void giveSpecificReward(MinecraftServer server, ServerPlayerEntity player, BountyConfig.Reward reward) {
         String cmd = "give " + player.getGameProfile().getName() + " " + reward.item + " " + Math.max(1, reward.count);
         server.getCommandManager().executeWithPrefix(server.getCommandSource().withSilent(), cmd);
     }
@@ -548,8 +657,17 @@ public final class BountyManager {
     public void syncTodayBoard(MinecraftServer server) {
         ensureScoreboards(server);
         executeSilently(server, "scoreboard players reset * bounty_today");
-        String fakeName = getDisplaySpecies().replace(" ", "_");
-        executeSilently(server, "scoreboard players set " + fakeName + " bounty_today 1");
+
+        // Scores are ordering keys for CobbleBoard status mode; the numbers are hidden there.
+        executeSilently(server, "scoreboard players set " + quoteScoreHolder(getDisplaySpecies()) + " bounty_today 30");
+        executeSilently(server, "scoreboard players set " + quoteScoreHolder(getDisplayBucket()) + " bounty_today 20");
+        executeSilently(server, "scoreboard players set " + quoteScoreHolder("Reward: " + getRewardDescription()) + " bounty_today 10");
+    }
+
+    private String quoteScoreHolder(String value) {
+        String safe = value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+        if (safe.length() > 40) safe = safe.substring(0, 40);
+        return "\"" + safe + "\"";
     }
 
     public void syncScoreboard(MinecraftServer server, ServerPlayerEntity player) {
@@ -568,9 +686,9 @@ public final class BountyManager {
     }
 
     private void broadcastNewBounty(MinecraftServer server) {
-        if (server == null) return;
+        if (server == null || !config.dailyAnnouncementEnabled) return;
         server.getPlayerManager().broadcast(
-                Text.literal("★ Daily Pokémon Bounty: " + getDisplaySpecies() + " [" + getDisplayBucket() + "] — Reward: " + getRewardDescription() + " ★"),
+                Text.literal("★ A new Pokémon Bounty is available! Use /bounty for details."),
                 false
         );
     }
