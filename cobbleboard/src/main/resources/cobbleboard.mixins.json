@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.cobbleverse.cobbleboard.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DisplayEntityInvoker",
+    "TextDisplayEntityInvoker"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

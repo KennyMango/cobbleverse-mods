@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "cobbleverse_pokedex_game",
+  "version": "${version}",
+  "name": "Cobbleverse Pokédex Game",
+  "description": "Alternating daily Cobblemon Pokédex and Pokémon-themed Wordle puzzles with persistent scoring.",
+  "authors": ["Cobbleverse"],
+  "environment": "server",
+  "entrypoints": {
+    "main": ["com.cobbleverse.pokedexgame.PokedexGameMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.17.2",
+    "fabric-api": "*",
+    "minecraft": "1.21.1",
+    "java": ">=21",
+    "cobblemon": ">=1.7.0"
+  }
+}

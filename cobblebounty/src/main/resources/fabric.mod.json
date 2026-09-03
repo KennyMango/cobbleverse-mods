@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "cobblebounty",
+  "version": "${version}",
+  "name": "CobbleBounty",
+  "description": "Server-side daily Pokemon bounty system for Cobbleverse.",
+  "authors": ["Cobbleverse"],
+  "environment": "server",
+  "entrypoints": {
+    "main": ["com.cobbleverse.cobblebounty.CobbleBountyMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.17.2",
+    "fabric-api": "*",
+    "minecraft": "1.21.1",
+    "java": ">=21",
+    "cobblemon": ">=1.7.3"
+  }
+}

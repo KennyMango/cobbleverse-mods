@@ -1,0 +1,151 @@
+# ============================================================
+# Cobbleverse Mods
+# Fabric / Gradle / Java
+# ============================================================
+
+# --------------------
+# Gradle generated files
+# --------------------
+.gradle/
+**/.gradle/
+
+build/
+**/build/
+
+out/
+**/out/
+
+# Keep Gradle wrapper JAR
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# --------------------
+# Compiled Java
+# --------------------
+*.class
+
+# --------------------
+# Built artifacts
+# Don't commit mod JARs
+# --------------------
+*.jar
+*.war
+*.ear
+
+# But Gradle wrapper JAR MUST be committed
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# --------------------
+# Minecraft dev/runtime
+# --------------------
+run/
+**/run/
+
+runs/
+**/runs/
+
+logs/
+**/logs/
+
+crash-reports/
+**/crash-reports/
+
+saves/
+**/saves/
+
+world/
+**/world/
+
+world_nether/
+**/world_nether/
+
+world_the_end/
+**/world_the_end/
+
+mods/
+**/mods/
+
+resourcepacks/
+**/resourcepacks/
+
+shaderpacks/
+**/shaderpacks/
+
+screenshots/
+**/screenshots/
+
+# Runtime/generated configs from dev server
+run/config/
+**/run/config/
+
+# --------------------
+# Loom / remapping
+# --------------------
+remappedJars/
+**/remappedJars/
+
+loom-cache/
+**/loom-cache/
+
+# --------------------
+# IntelliJ IDEA
+# --------------------
+.idea/
+**/.idea/
+*.iml
+*.ipr
+*.iws
+
+# --------------------
+# VS Code
+# --------------------
+.vscode/
+**/.vscode/
+
+# --------------------
+# Eclipse
+# --------------------
+.classpath
+.project
+.settings/
+**/.settings/
+
+# --------------------
+# OS garbage
+# --------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --------------------
+# Temporary / backup files
+# --------------------
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.swo
+*~
+*.orig
+
+# --------------------
+# Archives / packaged releases
+# --------------------
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# --------------------
+# Java crash dumps
+# --------------------
+hs_err_pid*
+replay_pid*
+
+
+# Local Gradle distributions/caches
+.gradle-local/
+**/.gradle-local/

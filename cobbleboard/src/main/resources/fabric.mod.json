@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "cobbleboard",
+  "version": "${version}",
+  "name": "CobbleBoard",
+  "description": "Server-side Top-N floating leaderboard panels with first-to-achieve tie breaking and admin overrides.",
+  "authors": [
+    "Cobbleverse"
+  ],
+  "environment": "server",
+  "mixins": [
+    "cobbleboard.mixins.json"
+  ],
+  "entrypoints": {
+    "main": [
+      "com.cobbleverse.cobbleboard.CobbleBoardMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.1",
+    "java": ">=21"
+  }
+}

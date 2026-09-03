@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -eu
+GRADLE_VERSION=8.10.2
+PROJECT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+LOCAL_DIR="$PROJECT_DIR/.gradle-local"
+GRADLE_HOME="$LOCAL_DIR/gradle-$GRADLE_VERSION"
+GRADLE_BIN="$GRADLE_HOME/bin/gradle"
+ZIP_FILE="$LOCAL_DIR/gradle-$GRADLE_VERSION-bin.zip"
+URL="https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+
+if [ ! -x "$GRADLE_BIN" ]; then
+  mkdir -p "$LOCAL_DIR"
+  echo "Downloading Gradle $GRADLE_VERSION..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -L "$URL" -o "$ZIP_FILE"
+  elif command -v wget >/dev/null 2>&1; then
+    wget "$URL" -O "$ZIP_FILE"
+  else
+    echo "ERROR: curl or wget is required to download Gradle." >&2
+    exit 1
+  fi
+  unzip -q -o "$ZIP_FILE" -d "$LOCAL_DIR"
+  rm -f "$ZIP_FILE"
+fi
+
+exec "$GRADLE_BIN" "$@"
