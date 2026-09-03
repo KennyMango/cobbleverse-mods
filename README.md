@@ -110,6 +110,8 @@ Useful commands:
 
 CobbleBounty selects a Pokémon for players to catch and submit each day.
 
+The target must be caught during the current active bounty when fresh-catch verification is enabled. Old PC Pokémon and Pokémon caught before an admin reroll will not qualify.
+
 ## Player Commands
 
 See today's bounty:
@@ -118,19 +120,56 @@ See today's bounty:
 /bounty
 ```
 
+This shows the target, rarity, reward, completion status, current streak, and lifetime total.
+
 Submit the Pokémon placed in the Bounty Pasture:
 
 ```mcfunction
 /bounty submit
 ```
 
-View standings:
+View lifetime standings:
 
 ```mcfunction
 /bounty leaderboard
 ```
 
-The Pokémon must be caught during the current bounty when fresh-catch verification is enabled.
+View the previous 7 daily bounties:
+
+```mcfunction
+/bounty history
+```
+
+View your personal bounty statistics:
+
+```mcfunction
+/bounty stats
+```
+
+Stats include:
+
+- Lifetime completions
+- Current streak
+- Best streak
+- First completions
+- Common completions
+- Uncommon completions
+- Rare completions
+- Ultra-Rare completions
+
+## Daily Notifications
+
+When a new daily bounty becomes available, players are notified with:
+
+```text
+★ A new Pokémon Bounty is available! Use /bounty for details.
+```
+
+The login reminder is only shown once per player per day.
+
+When someone completes the bounty, the server can announce the completion and their current streak.
+
+The first player to complete the bounty each day is also tracked and can receive a separate first-completion announcement.
 
 ## Admin Setup
 
@@ -178,6 +217,49 @@ Reload configuration:
 /bounty admin reload
 ```
 
+## Rarity Buckets
+
+Available bounty rarity buckets:
+
+```text
+common
+uncommon
+rare
+ultra-rare
+```
+
+The bucket determines which reward entry is used and can be weighted independently in `config/cobblebounty.json`.
+
+## Optional Features
+
+Streak milestone rewards are prepared in the config but disabled by default:
+
+```json
+"enableStreakMilestones": false,
+"streakMilestoneRewards": {}
+```
+
+No additional streak rewards are given while this is disabled.
+
+Rarity-based presentation settings are also prepared but disabled by default:
+
+```json
+"enableRarityPresentation": false,
+"rarityPresentation": {
+  "common": "gray",
+  "uncommon": "green",
+  "rare": "light_purple",
+  "ultra-rare": "gold"
+}
+```
+
+Daily and first-completion announcements can also be controlled through:
+
+```json
+"dailyAnnouncementEnabled": true,
+"firstCompletionAnnouncementEnabled": true
+```
+
 ## CobbleBoard Displays
 
 CobbleBounty provides:
@@ -193,6 +275,7 @@ Lifetime leaderboard:
 ```mcfunction
 /cobbleboard board create bounty bounty_total <x> <y> <z> 10
 /cobbleboard board title bounty BOUNTY HUNTERS
+/cobbleboard board mode bounty panel
 ```
 
 Streak leaderboard:
@@ -200,6 +283,7 @@ Streak leaderboard:
 ```mcfunction
 /cobbleboard board create bountystreak bounty_streak <x> <y> <z> 10
 /cobbleboard board title bountystreak BOUNTY STREAKS
+/cobbleboard board mode bountystreak panel
 ```
 
 Today's bounty display:
@@ -209,6 +293,8 @@ Today's bounty display:
 /cobbleboard board title dailybounty TODAY'S BOUNTY
 /cobbleboard board mode dailybounty status
 ```
+
+The `bounty_today` status display shows the current species, rarity, and reward without exposing the scoreboard ordering numbers.
 
 ---
 
