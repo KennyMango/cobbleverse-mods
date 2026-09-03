@@ -219,7 +219,7 @@ public final class BoardManager {
     }
 
     private Text buildStatusText(ServerWorld world, BoardData.BoardDefinition board) {
-        Text result = Text.empty()
+        var result = Text.empty()
                 .append(Text.literal(board.title).formatted(parseColor(board.titleColor, Formatting.YELLOW), Formatting.BOLD))
                 .append(Text.literal("\n"))
                 .append(Text.literal("━━━━━━━━━━━━━━━━━━━━").formatted(Formatting.DARK_GRAY));
@@ -305,7 +305,7 @@ public final class BoardManager {
     }
 
     private Text buildPanelText(BoardData.BoardDefinition board) {
-        Text result = Text.empty()
+        var result = Text.empty()
                 .append(Text.literal(board.title).formatted(parseColor(board.titleColor, Formatting.YELLOW), Formatting.BOLD))
                 .append(Text.literal("\n"))
                 .append(Text.literal("━━━━━━━━━━━━━━━━━━━━").formatted(Formatting.DARK_GRAY));
@@ -468,7 +468,7 @@ public final class BoardManager {
         int removed = 0;
         for (ServerWorld world : server.getWorlds()) {
             try {
-                removed += server.getCommandManager().executeWithPrefix(
+                server.getCommandManager().executeWithPrefix(
                         server.getCommandSource().withWorld(world),
                         "kill @e[tag=" + tag + "]");
             } catch (Exception e) {
@@ -490,7 +490,7 @@ public final class BoardManager {
         int removed = 0;
         for (ServerWorld world : server.getWorlds()) {
             try {
-                removed += server.getCommandManager().executeWithPrefix(
+                server.getCommandManager().executeWithPrefix(
                         server.getCommandSource().withWorld(world),
                         "kill @e[tag=cobbleboard]");
             } catch (Exception e) {
